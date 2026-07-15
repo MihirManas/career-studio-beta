@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Career Studio (Dry Run)</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; margin: 0; padding: 0; }
+        .container { max-width: 800px; margin: 40px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1 { color: #111827; }
+        textarea { width: 100%; height: 150px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 20px; font-family: inherit; }
+        button { background-color: #2563eb; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
+        button:hover { background-color: #1d4ed8; }
+        button:disabled { background-color: #9ca3af; cursor: not-allowed; }
+        .loading { display: none; color: #4b5563; margin-top: 10px; }
+        .result-box { margin-top: 30px; padding: 20px; background: #f3f4f6; border-radius: 8px; display: none; }
+        pre { white-space: pre-wrap; font-size: 13px; }
+        .html-preview { margin-top: 20px; padding: 20px; border: 1px solid #e5e7eb; background: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Career Studio (Dry Run)</h1>
+        <p>Upload your raw knowledge (notes, project details) below to generate a Knowledge Model and an Article.</p>
+        
+        <textarea id="rawText" placeholder="Paste your raw project notes or resume experience here..."></textarea>
+        <button id="submitBtn" onclick="processKnowledge()">Extract & Generate</button>
+        <div id="loading" class="loading">Processing AI Pipeline... this may take 10-20 seconds.</div>
+        
+        <div id="resultBox" class="result-box">
+            <h3>Knowledge Model Generated</h3>
+            <pre id="jsonPreview"></pre>
+            
+            <h3>Article Preview</h3>
+            <div id="htmlPreview" class="html-preview"></div>
+            
+            <h3>Quality Scores</h3>
+            <pre id="scorePreview"></pre>
+        </div>
+    </div>
+
+    <script>
+        async function processKnowledge() {
+            const rawText = document.getElementById('rawText').value;
+            if (!rawText) return alert("Please enter some text.");
+            
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultBox').style.display = 'none';
+            
+            try {
+                // Step 1: Upload and Extract Knowledge Model
+                const uploadRes = await fetch('/api/v1/knowledge/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: "test-user-123",
+                        source_type: "raw_text",
+                        raw_text: rawText
+                    })
+                });
+                const uploadData = await uploadRes.json();
+                
+                if (!uploadData.model_id) throw new Error("Upload failed.");
+                
+                document.getElementById('jsonPreview').textContent = JSON.stringify(uploadData.knowledge_model, null, 2);
+                
+                // Step 2: Generate Artifact
+                const genRes = await fetch('/api/v1/knowledge/generate-artifact', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model_id: uploadData.model_id,
+                        artifact_type: "article"
+                    })
+                });
+                const genData = await genRes.json();
+                
+                document.getElementById('htmlPreview').innerHTML = genData.artifact.html;
+                document.getElementById('scorePreview').textContent = JSON.stringify(genData.artifact.quality_scores, null, 2);
+                
+                document.getElementById('resultBox').style.display = 'block';
+            } catch (err) {
+                alert("Error: " + err.message);
+            } finally {
+                document.getElementById('submitBtn').disabled = false;
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
